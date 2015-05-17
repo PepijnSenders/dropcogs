@@ -1,0 +1,5 @@
+suites:
+    main:
+        namespace: Pep\Dropcogs
+        psr4_prefix: Pep\Dropcogs
+        src_path: app

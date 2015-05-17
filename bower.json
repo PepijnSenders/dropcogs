@@ -1,0 +1,20 @@
+{
+  "name": "dropcogs",
+  "version": "0.0.0",
+  "authors": [
+    "Pepijn Senders <p.senders92@gmail.com>"
+  ],
+  "license": "MIT",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "bootstrap-sass-official": "~3.3.3",
+    "modernizr": "~2.8.3"
+  }
+}
