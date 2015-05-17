@@ -16,7 +16,7 @@ return [
 	|
 	*/
 
-	'default' => env('QUEUE_DRIVER', 'database'),
+	'default' => env('QUEUE_DRIVER', 'sqs'),
 
 	/*
 	|--------------------------------------------------------------------------
@@ -51,10 +51,10 @@ return [
 
 		'sqs' => [
 			'driver' => 'sqs',
-			'key'    => 'your-public-key',
-			'secret' => 'your-secret-key',
-			'queue'  => 'your-queue-url',
-			'region' => 'us-east-1',
+			'key'    => env('SQS_KEY'),
+			'secret' => env('SQS_SECRET'),
+			'queue'  => env('SQS_URL'),
+			'region' => env('SQS_REGION'),
 		],
 
 		'iron' => [

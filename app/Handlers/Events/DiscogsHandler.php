@@ -41,19 +41,16 @@ class DiscogsHandler implements ShouldBeQueued {
 
 					$handle = fopen($tmpFile, 'w');
 
-					// @TODO Best match
-					foreach ($files as $index => $file) {
-						$pathPieces = explode('/', $file->path);
+					$similarity = [];
+					array_walk($files, function($item, $index) use (&$similarity, $track) {
+						similar_text($item->path, $track['title'], $percentage);
+						$similarity[$item->path] = $percentage;
+					});
 
-						similar_text($pathPieces[count($pathPieces) - 1], $track['title'], $similarity);
+					$highestValue = max($similarity);
+					$path = array_search($highestValue, $similarity);
 
-						if ($similarity > 80) {
-							$useFile = $file;
-							unset($files[$index]);
-						}
-					}
-
-					$metadata = $dropbox->getFile($useFile->path, $handle);
+					$metadata = $dropbox->getFile($path, $handle);
 
 					fclose($handle);
 
@@ -96,18 +93,18 @@ class DiscogsHandler implements ShouldBeQueued {
 
 					$handle = fopen($tmpFile, 'r');
 
-					$path = '/Dropcogs/';
-					$path .= $releaseInfo['genres'][0] . '/';
-					$path .= $this->getArtist($releaseInfo['artists']) . '/';
-					$path .= $releaseInfo['title'] . '/';
+					$newPath = '/Dropcogs/v0.1/';
+					$newPath .= $releaseInfo['styles'][0] . '/';
+					$newPath .= $this->getArtist($releaseInfo['artists']) . '/';
+					$newPath .= $releaseInfo['title'] . '/';
 					// @TODO extension stuff
-					$path .= $name . '.mp3';
+					$newPath .= $name . '.mp3';
 
-					$dropbox->uploadFileChunked($path, WriteMode::force(), $handle);
+					$dropbox->uploadFileChunked($newPath, WriteMode::force(), $handle);
 
 					fclose($handle);
 
-					echo "Uploaded: {$track['title']}, {$useFile->path}\n";
+					echo "Uploaded: {$track['title']}, {$path}\n";
 				}
 			}
 		}
