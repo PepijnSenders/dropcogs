@@ -2,6 +2,11 @@
 
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use Pep\Dropcogs\DropboxSession;
+use Pep\Dropcogs\Discogs\Client as DiscogsClient;
+use Pep\Dropcogs\Dropbox\Client as DropboxClient;
+use Exception;
+use Dropbox\WriteMode;
 
 class File extends Model {
 
@@ -26,24 +31,106 @@ class File extends Model {
 		return $this->hasOne('Pep\Dropcogs\User');
 	}
 
-	public static function filesByFolder() {
-		$files = self::get();
-		$folders = [];
+	public function parse(DropboxSession $session) {
+		echo "Parsing $this->path\n";
+		include app_path() . '/../vendor/james-heinrich/getid3/getid3/getid3.php';
+		include app_path() . '/../vendor/james-heinrich/getid3/getid3/write.php';
 
-		foreach ($files as $file) {
-			$pathParts = explode('/', $file->path);
-			$identifier = $pathParts[count($pathParts) - 2];
+		$dropbox = new DropboxClient($session->user_id, $session->access_token);
 
-			if (isset($folders[$identifier]) && is_array($folders[$identifier])) {
-				array_push($folders[$identifier], $file);
-			} else {
-				$folders[$identifier] = [
-				  $file,
-			  ];
+		$client = new DiscogsClient(
+			config('services.discogs.key'),
+			config('services.discogs.secret'),
+			config('services.discogs.access_token'),
+			config('services.discogs.appName')
+		);
+
+		$pathParts = explode('/', $this->path);
+		$folder = $pathParts[count($pathParts) - 2];
+
+		$searchResults = $client->search($folder);
+
+		if (count($searchResults) > 0) {
+			$releaseInfo = $client->release($this->getReleaseId($searchResults));
+
+			$path = $this->path;
+			$similarityCheck = [];
+
+			array_walk($releaseInfo['tracklist'], function($track) use ($path, &$similarityCheck) {
+				similar_text($path, $track['title'], $percentage);
+				$similarityCheck[$percentage] = $track;
+			});
+
+			$track = $similarityCheck[max(array_keys($similarityCheck))];
+
+			$tmpFile = tempnam(sys_get_temp_dir(), 'Dropcogs');
+			$handle = fopen($tmpFile, 'w');
+			$metadata = $dropbox->getFile($path, $handle);
+			fclose($handle);
+
+			$tagWriter = new \getid3_writetags;
+
+			$tagWriter->filename = $tmpFile;
+			$tagWriter->overwrite_tags = true;
+			$tagWriter->tag_encoding = 'UTF-8';
+			$tagWriter->tagformats = ['id3v2.3'];
+			$tagWriter->remove_other_tags = true;
+
+			$tagData = [];
+			$name = $track['position'] . ' - ' . $track['title'];
+			$tagData['title'] = [$name];
+			$tagData['artist'] = isset($track['artists']) ? array_column($track['artists'], 'name') : array_column($releaseInfo['artists'], 'name');
+			$tagData['album'] = [$releaseInfo['title']];
+			$tagData['year'] = [$releaseInfo['year']];
+			$tagData['genre'] = $releaseInfo['genres'];
+			$tagData['track'] = [$track['position']];
+
+			$tagData['attached_picture'][0]['data'] = $client->downloadImage($releaseInfo['thumb']);
+			$tagData['attached_picture'][0]['picturetypeid'] = 0x03;
+			$tagData['attached_picture'][0]['description'] = $releaseInfo['title'];
+			$tagData['attached_picture'][0]['mime'] = 'image/jpeg';
+
+			foreach ($releaseInfo['images'] as $image) {
+				$tagData['attached_picture'][0]['data'] = $client->downloadImage($image['resource_url']);
+				$tagData['attached_picture'][0]['picturetypeid'] = 0x00;
+				$tagData['attached_picture'][0]['description'] = $releaseInfo['title'];
+				$tagData['attached_picture'][0]['mime'] = 'image/jpeg';
 			}
+
+			$tagWriter->tag_data = $tagData;
+			$tagWriter->WriteTags();
+
+			if (!empty($tagWriter->warnings) || !empty($tagWriter->errors)) {
+				throw Exception(implode(',', $tagWriter->warnings) . '-' . implode(',', $tagWriter->errors));
+			}
+
+			$handle = fopen($tmpFile, 'r');
+
+			$newPath = '/Dropcogs/v0.2/';
+			$newPath .= $releaseInfo['styles'][0] . '/';
+			$newPath .= implode(', ', $tagData['artist']) . '/';
+			$newPath .= $releaseInfo['title'] . '/';
+			// @TODO extension stuff
+			$newPath .= $name . '.mp3';
+
+			$dropbox->uploadFileChunked($newPath, WriteMode::force(), $handle);
+
+			fclose($handle);
+
+			echo "Uploaded: {$track['title']}, {$path}\n";
 		}
 
-		return $folders;
+		// Make state not boolean
+		$this->parsed = true;
+		$this->save();
+	}
+
+	private function getReleaseId($searchResults) {
+		foreach ($searchResults as $result) {
+			if ($result['type'] === 'release') {
+				return $result['id'];
+			}
+		}
 	}
 
 	public static function loadEntries(Folder $folder, $entries = [], $cb) {

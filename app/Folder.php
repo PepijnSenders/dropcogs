@@ -6,6 +6,10 @@ class Folder extends Model {
 
   protected $table = 'folders';
 
+  public function files() {
+    return $this->hasMany('Pep\Dropcogs\File');
+  }
+
   public static function isIncluded($path) {
     $pathPieces = explode('/', $path);
 

@@ -10,6 +10,7 @@ class CreateFilesTable extends Migration {
       $table->increments('id');
 
       $table->integer('folder_id')->index();
+      $table->boolean('parsed')->default(false);
       $table->string('parent_shared_folder_id');
       $table->string('rev');
       $table->boolean('thumb_exists');
