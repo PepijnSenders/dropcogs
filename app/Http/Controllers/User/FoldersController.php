@@ -10,82 +10,84 @@ use Pep\Dropcogs\DropboxSession;
 use Pep\Dropcogs\Dropbox\Client as DropboxClient;
 use Carbon\Carbon;
 
-class FoldersController extends Controller {
+class FoldersController extends Controller
+{
 
-  public function add(Request $request) {
-    $user = DropboxSession::getUser();
-    $client = User::getUserClient();
+    public function add(Request $request)
+    {
+        $user = DropboxSession::getUser();
+        $client = User::getUserClient();
 
-    $folder = new Folder;
+        $folder = new Folder;
 
-    $path = $request->input('path');
-    $metadata = $client->getMetadata($path);
+        $path = $request->input('path');
+        $metadata = $client->getMetadata($path);
 
-    $folder->user_id = $user->id;
-    $folder->rev = $metadata['rev'];
-    $folder->modified = new Carbon($metadata['modified']);
-    $folder->path = $metadata['path'];
-    $folder->icon = $metadata['icon'];
-    $folder->include = true;
+        $folder->user_id = $user->id;
+        $folder->rev = $metadata['rev'];
+        $folder->modified = new Carbon($metadata['modified']);
+        $folder->path = $metadata['path'];
+        $folder->icon = $metadata['icon'];
+        $folder->include = true;
 
-    $folder->save();
+        $folder->save();
 
-    $pieces = explode('/', $path);
+        $pieces = explode('/', $path);
 
-    while (count($pieces)) {
-      $piecedPath = implode('/', $pieces);
+        while (count($pieces)) {
+            $piecedPath = implode('/', $pieces);
 
-      $folder = Folder::where('path', $piecedPath)
-        ->where('include', false)
-        ->first();
+            $folder = Folder::where('path', $piecedPath)
+                ->where('include', false)
+                ->first();
 
-      if ($folder) {
-        $folder->delete();
-      }
+            if ($folder) {
+                $folder->delete();
+            }
 
-      array_pop($pieces);
+            array_pop($pieces);
+        }
+
+        $pieces = explode('/', $path);
+        array_pop($pieces);
+
+        return Redirect::route('pages.users.configure', [
+            'path' => implode('/', $pieces),
+        ]);
     }
 
-    $pieces = explode('/', $path);
-    array_pop($pieces);
+    public function remove(Request $request)
+    {
+        $user = DropboxSession::getUser();
+        $client = User::getUserClient();
 
-    return Redirect::route('pages.users.configure', [
-      'path' => implode('/', $pieces),
-    ]);
-  }
+        $path = $request->input('path');
 
-  public function remove(Request $request) {
-    $user = DropboxSession::getUser();
-    $client = User::getUserClient();
+        $folder = Folder::where('path', $path)
+            ->first();
 
-    $path = $request->input('path');
+        if ($folder) {
+            $folder->delete();
+        } else {
+            $folder = new Folder;
 
-    $folder = Folder::where('path', $path)
-      ->first();
+            $metadata = $client->getMetadata($path);
 
-    if ($folder) {
-      $folder->delete();
-    } else {
-      $folder = new Folder;
+            $folder->user_id = $user->id;
+            $folder->rev = $metadata['rev'];
+            $folder->modified = new Carbon($metadata['modified']);
+            $folder->path = $metadata['path'];
+            $folder->icon = $metadata['icon'];
+            $folder->include = false;
 
-      $metadata = $client->getMetadata($path);
+            $folder->save();
+        }
 
-      $folder->user_id = $user->id;
-      $folder->rev = $metadata['rev'];
-      $folder->modified = new Carbon($metadata['modified']);
-      $folder->path = $metadata['path'];
-      $folder->icon = $metadata['icon'];
-      $folder->include = false;
+        $pieces = explode('/', $path);
+        array_pop($pieces);
 
-      $folder->save();
+        return Redirect::route('pages.users.configure', [
+            'path' => implode('/', $pieces),
+        ]);
     }
-
-    $pieces = explode('/', $path);
-    array_pop($pieces);
-
-    return Redirect::route('pages.users.configure', [
-      'path' => implode('/', $pieces),
-    ]);
-  }
-
 }

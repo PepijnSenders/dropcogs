@@ -5,18 +5,20 @@ use Pep\Dropcogs\Events\Event;
 use Illuminate\Queue\SerializesModels;
 use Pep\Dropcogs\User;
 
-class AnalyzeEvent extends Event {
+class AnalyzeEvent extends Event
+{
 
-	use SerializesModels;
+    use SerializesModels;
 
-	protected $user;
+    protected $user;
 
-	public function __construct(User $user) {
-		$this->user = $user;
-	}
+    public function __construct(User $user)
+    {
+        $this->user = $user;
+    }
 
-	public function getUser() {
-		return $this->user;
-	}
-
+    public function getUser()
+    {
+        return $this->user;
+    }
 }

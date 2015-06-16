@@ -1,7 +1,6 @@
 <?php namespace Pep\Dropcogs\Commands;
 
-abstract class Command {
-
-	//
+abstract class Command
+{
 
 }

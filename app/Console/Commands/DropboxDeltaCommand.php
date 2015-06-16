@@ -7,19 +7,20 @@ use Pep\Dropcogs\Folder;
 use Pep\Dropcogs\Dropbox\Client as DropboxClient;
 use Pep\Dropcogs\Events\AnalyzeEvent;
 
-class DropboxDeltaCommand extends Command {
+class DropboxDeltaCommand extends Command
+{
 
-	protected $name = 'dropbox:delta';
-	protected $description = 'Update user files according to Dropbox Delta.';
+    protected $name = 'dropbox:delta';
+    protected $description = 'Update user files according to Dropbox Delta.';
 
-	public function fire() {
-		$users = User::get();
+    public function fire()
+    {
+        $users = User::get();
 
-		foreach ($users as $user) {
-			$session = $user->getDropboxSession();
+        foreach ($users as $user) {
+            $session = $user->getDropboxSession();
 
-			event(new AnalyzeEvent($user));
-		}
-	}
-
+            event(new AnalyzeEvent($user));
+        }
+    }
 }

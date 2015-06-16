@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
+use Pep\Dropcogs\File;
 
 class CreateFilesTable extends Migration {
 
@@ -10,7 +11,7 @@ class CreateFilesTable extends Migration {
       $table->increments('id');
 
       $table->integer('folder_id')->index();
-      $table->boolean('parsed')->default(false);
+      $table->string('parsing_state')->default(File::READY);
       $table->string('parent_shared_folder_id');
       $table->string('rev');
       $table->boolean('thumb_exists');

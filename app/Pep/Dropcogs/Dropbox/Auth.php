@@ -10,50 +10,55 @@ use Dropbox\ArrayEntryStore as DbxArrayEntryStore;
 use Dropbox\Exception as DbxException;
 use Carbon\Carbon;
 
-class Auth {
+class Auth
+{
 
-  public static function getWebAuth() {
-    $appInfo = DbxAppInfo::loadFromJson(config('services.dropbox'));
-    return new DbxWebAuth(
-      $appInfo,
-      self::getAppName(),
-      config('services.dropbox.redirect'),
-      self::getCsrfTokenStore()
-    );
-  }
-
-  public static function getAppName() {
-    return config('services.dropbox.app') . '/1.0';
-  }
-
-  public static function getCsrfTokenStore() {
-    $session = [
-      'dropbox-auth-csrf-token' => Input::get('state', Session::get('dropbox-auth-csrf-token', Session::get('_token'))),
-    ];
-
-    return new DbxArrayEntryStore($session, 'dropbox-auth-csrf-token');
-  }
-
-  public static function start() {
-    $authorizeUrl = self::getWebAuth()
-      ->start();
-
-    return $authorizeUrl;
-  }
-
-  public static function finish($params = []) {
-    try {
-      list($accessToken, $userId, $urlState) = self::getWebAuth()
-        ->finish($params);
-    } catch (DbxException $e) {
-      throw new Exception($e->getMessage());
+    public static function getWebAuth()
+    {
+        $appInfo = DbxAppInfo::loadFromJson(config('services.dropbox'));
+        return new DbxWebAuth(
+            $appInfo,
+            self::getAppName(),
+            config('services.dropbox.redirect'),
+            self::getCsrfTokenStore()
+        );
     }
 
-    return [
-      'accessToken' => $accessToken,
-      'userId' => $userId,
-      'urlState' => $urlState,
-    ];
-  }
+    public static function getAppName()
+    {
+        return config('services.dropbox.app') . '/1.0';
+    }
 
+    public static function getCsrfTokenStore()
+    {
+        $session = [
+            'dropbox-auth-csrf-token' => Input::get('state', Session::get('dropbox-auth-csrf-token', Session::get('_token'))),
+        ];
+
+        return new DbxArrayEntryStore($session, 'dropbox-auth-csrf-token');
+    }
+
+    public static function start()
+    {
+        $authorizeUrl = self::getWebAuth()
+            ->start();
+
+        return $authorizeUrl;
+    }
+
+    public static function finish($params = [])
+    {
+        try {
+            list($accessToken, $userId, $urlState) = self::getWebAuth()
+                ->finish($params);
+        } catch (DbxException $e) {
+            throw new Exception($e->getMessage());
+        }
+
+        return [
+            'accessToken' => $accessToken,
+            'userId' => $userId,
+            'urlState' => $urlState,
+        ];
+    }
 }

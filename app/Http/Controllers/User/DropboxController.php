@@ -15,62 +15,64 @@ use Carbon\Carbon;
 use Pep\Dropcogs\Events\AnalyzeEvent;
 use Pep\Dropcogs\Events\AnalyzedEvent;
 
-class DropboxController extends Controller {
+class DropboxController extends Controller
+{
 
-	public function auth(Request $request) {
-		try {
-			$session = DropboxAuth::finish($request->all());
-		} catch (DropboxException $e) {
-			return redirect()->route('pages.users.login')
-				->with('message', $e->getMessage());
-		}
+    public function auth(Request $request)
+    {
+        try {
+            $session = DropboxAuth::finish($request->all());
+        } catch (DropboxException $e) {
+            return redirect()->route('pages.users.login')
+                ->with('message', $e->getMessage());
+        }
 
-		$client = new DropboxClient($session['userId'], $session['accessToken']);
+        $client = new DropboxClient($session['userId'], $session['accessToken']);
 
-		$accountInfo = $client->getAccountInfo();
+        $accountInfo = $client->getAccountInfo();
 
-		$user = User::where('dropbox_id', $accountInfo['uid'])
-			->first();
+        $user = User::where('dropbox_id', $accountInfo['uid'])
+            ->first();
 
-		if (!$user) {
-			$user = new User;
-		}
+        if (!$user) {
+            $user = new User;
+        }
 
-		$user->dropbox_id = $accountInfo['uid'];
-		$user->display_name = $accountInfo['display_name'];
-		$user->first_name = $accountInfo['name_details']['given_name'];
-		$user->last_name = $accountInfo['name_details']['surname'];
-		$user->familiar_name = $accountInfo['name_details']['familiar_name'];
-		$user->email = $accountInfo['email'];
-		$user->country = $accountInfo['country'];
-		$user->locale = $accountInfo['locale'];
-		$user->referral_link = $accountInfo['referral_link'];
+        $user->dropbox_id = $accountInfo['uid'];
+        $user->display_name = $accountInfo['display_name'];
+        $user->first_name = $accountInfo['name_details']['given_name'];
+        $user->last_name = $accountInfo['name_details']['surname'];
+        $user->familiar_name = $accountInfo['name_details']['familiar_name'];
+        $user->email = $accountInfo['email'];
+        $user->country = $accountInfo['country'];
+        $user->locale = $accountInfo['locale'];
+        $user->referral_link = $accountInfo['referral_link'];
 
-		$user->save();
+        $user->save();
 
-		$dropboxSession = new DropboxSession;
+        $dropboxSession = new DropboxSession;
 
-		$dropboxSession->access_token = $session['accessToken'];
-		$dropboxSession->dropbox_id = $session['userId'];
-		$dropboxSession->url_state = $session['urlState'];
-		$dropboxSession->user_id = $user->id;
+        $dropboxSession->access_token = $session['accessToken'];
+        $dropboxSession->dropbox_id = $session['userId'];
+        $dropboxSession->url_state = $session['urlState'];
+        $dropboxSession->user_id = $user->id;
 
-		$dropboxSession->save();
+        $dropboxSession->save();
 
-		session([
-			'dropbox_session' => $dropboxSession,
-		]);
+        session([
+            'dropbox_session' => $dropboxSession,
+        ]);
 
-		return redirect()->route('pages.users.configure');
-	}
+        return redirect()->route('pages.users.configure');
+    }
 
-	public function analyze() {
-		$user = DropboxSession::getUser();
+    public function analyze()
+    {
+        $user = DropboxSession::getUser();
 
-		event(new AnalyzeEvent($user));
-		dd($user);
+        event(new AnalyzeEvent($user));
+        dd($user);
 
-		return redirect()->route('');
-	}
-
+        return redirect()->route('');
+    }
 }
