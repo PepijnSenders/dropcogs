@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use Pep\Dropcogs\ParsedFile;
 use Pep\Dropcogs\DropboxSession;
 use Pep\Dropcogs\Discogs\Client as DiscogsClient;
 use Pep\Dropcogs\Dropbox\Client as DropboxClient;
@@ -145,13 +146,20 @@ class File extends Model
             fclose($handle);
 
             echo "Uploaded: {$track['title']}, {$path}\n";
+            $this->parsing_state = self::PARSED;
+
+            $parsedFile = new ParsedFile;
+
+            $parsedFile->file_id = $this->id;
+            $parsedFile->path = $newPath;
+
+            $parsedFile->save();
         } else {
-            echo "No results";
+            echo "No results\n";
 
             $this->parsing_state = self::NO_RESULTS;
         }
 
-        $this->parsing_state = self::PARSED;
         $this->save();
     }
 
