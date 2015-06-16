@@ -20,10 +20,23 @@ class Client
         $this->client = new DbxClient($accessToken, Auth::getAppName());
     }
 
+    public static function cacheIdentifier($funcName, $args = [])
+    {
+        return $funcName . json_encode($args);
+    }
+
     public function __call($name, $arguments)
     {
+        $identifier = self::cacheIdentifier('name', $arguments);
+
+        if (Cache::has($identifier)) {
+            return Cache::get($identifier);
+        }
+
         try {
             $result = call_user_func_array([$this->client, $name], $arguments);
+
+            Cache::put($identifier, $result, Carbon::now()->addDays(30));
 
             return $result;
         } catch (DbxException $e) {

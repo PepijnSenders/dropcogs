@@ -15,6 +15,7 @@ class File extends Model
     const PARSING = 'parsing';
     const ERROR = 'error';
     const PARSED = 'parsed';
+    const NO_RESULTS = 'no-results';
 
     protected $table = 'files';
 
@@ -36,6 +37,23 @@ class File extends Model
     public function user()
     {
         return $this->hasOne('Pep\Dropcogs\User');
+    }
+
+    private function extractTitle($fileInfo)
+    {
+        $title = '';
+
+        if (!is_array($fileInfo) || !array_key_exists('tags_html', $fileInfo)) {
+            return $title;
+        }
+
+        foreach ($fileInfo['tags_html'] as $tags) {
+            if (array_key_exists('title', $tags)) {
+                $title = $tags['title'][0];
+            }
+        }
+
+        return $title;
     }
 
     public function parse(DropboxSession $session)
@@ -66,17 +84,22 @@ class File extends Model
             $path = $this->path;
             $similarityCheck = [];
 
-            array_walk($releaseInfo['tracklist'], function ($track) use ($releaseInfo, $path, &$similarityCheck) {
-                similar_text($path, $releaseInfo['title'] . '-' . $track['title'], $percentage);
-                $similarityCheck[$percentage] = $track;
-            });
-
-            $track = $similarityCheck[max(array_keys($similarityCheck))];
-
             $tmpFile = tempnam(sys_get_temp_dir(), 'Dropcogs');
             $handle = fopen($tmpFile, 'w');
             $metadata = $dropbox->getFile($path, $handle);
             fclose($handle);
+
+            $getID3 = new \getID3;
+            $fileInfo = $getID3->analyze($tmpFile);
+
+            $title = $this->extractTitle($fileInfo);
+
+            array_walk($releaseInfo['tracklist'], function ($track) use ($title, $path, &$similarityCheck) {
+                similar_text($title ? $title : $path, $track['title'], $percentage);
+                $similarityCheck[$percentage] = $track;
+            });
+
+            $track = $similarityCheck[max(array_keys($similarityCheck))];
 
             $tagWriter = new \getid3_writetags;
 
@@ -100,13 +123,6 @@ class File extends Model
             $tagData['attached_picture'][0]['description'] = $releaseInfo['title'];
             $tagData['attached_picture'][0]['mime'] = 'image/jpeg';
 
-            if (array_key_exists('images', $releaseInfo)) {
-                $tagData['attached_picture'][1]['data'] = $client->downloadImage($releaseInfo['images'][0]['resource_url']);
-                $tagData['attached_picture'][1]['picturetypeid'] = 0x00;
-                $tagData['attached_picture'][1]['description'] = $releaseInfo['title'];
-                $tagData['attached_picture'][1]['mime'] = 'image/jpeg';
-            }
-
             $tagWriter->tag_data = $tagData;
             $tagWriter->WriteTags();
 
@@ -118,18 +134,21 @@ class File extends Model
 
             $handle = fopen($tmpFile, 'r');
 
-            $newPath = '/Dropcogs/v0.3/';
-            $newPath .= $releaseInfo['styles'][0] . '/';
-            $newPath .= implode(', ', $tagData['artist']) . '/';
-            $newPath .= $releaseInfo['title'] . '/';
-            $newPath = str_replace(' ', '-', $newPath);
-            $newPath .= $name . '.' . pathinfo($metadata['path'], PATHINFO_EXTENSION);
+            $newPath = '/Dropcogs/v0.2/';
+            $newPath .= trim($releaseInfo['styles'][0]) . '/';
+            $newPath .= trim(implode(', ', $tagData['artist'])) . '/';
+            $newPath .= trim($releaseInfo['title']) . '/';
+            $newPath .= trim($name . '.' . pathinfo($metadata['path'], PATHINFO_EXTENSION));
 
             $dropbox->uploadFileChunked($newPath, WriteMode::force(), $handle);
 
             fclose($handle);
 
             echo "Uploaded: {$track['title']}, {$path}\n";
+        } else {
+            echo "No results";
+
+            $this->parsing_state = self::NO_RESULTS;
         }
 
         $this->parsing_state = self::PARSED;
